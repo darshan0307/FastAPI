@@ -12,7 +12,8 @@ from app.database import get_db
 from app.database import Base
 import pytest
 from alembic import command
-
+from app import models
+from app.oauth2 import create_access_token
 
 SQLALCHEMY_DATABASE_URL = f"postgresql://{settings.database_username}:{settings.database_password}@{settings.database_hostname}:{settings.database_port}/{settings.database_name}_test"
 
@@ -86,5 +87,21 @@ def authorized_client(client, token):
     return client
 
 
+@pytest.fixture
+def test_posts(test_user, session):
+    """Fixture for creating test posts. """
+    posts_data = [
+        {"title": "First Post", "content": "Content of the first post", "owner_id": test_user['id']},
+        {"title": "Second Post", "content": "Content of the second post", "owner_id": test_user['id']},
+        {"title": "Third Post", "content": "Content of the third post", "owner_id": test_user['id']}
+    ]
+    posts = []
+    for post_data in posts_data:
+        post = models.Post(**post_data)
+        session.add(post)
+        session.commit()
+        session.refresh(post)
+        posts.append(post)
+    return posts
 
 
