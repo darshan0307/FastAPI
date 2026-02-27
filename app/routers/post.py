@@ -8,7 +8,8 @@ from ..database import  get_db
 
 
 router = APIRouter(
-    prefix="/postes",
+    # tests expect endpoint under "/posts/" so keep prefix plural
+    prefix="/posts",
     tags=['Posts']
 )
 
@@ -36,11 +37,25 @@ def get_post(db: Session = Depends(get_db), current_user: int = Depends(oauth2.g
     # posts = cursor.fetchall()
     # posts = db.query(models.Post).filter(models.Post.title.contains(search)).limit(limit).offset(skip).all()
     
-    results = db.query(models.Post, func.count(models.Vote.post_id).label("votes")).join(
+    # query returns tuples of (Post, votes)
+    raw_results = db.query(models.Post, func.count(models.Vote.post_id).label("votes")).join(
         models.Vote, models.Vote.post_id == models.Post.id, isouter=True).group_by(models.Post.id).filter(
             models.Post.title.contains(search)).limit(limit).offset(skip).all()
-    
-    return results
+
+    # flatten each tuple into a dict that matches the PostOut schema
+    posts = []
+    for post_obj, votes in raw_results:
+        posts.append({
+            "id": post_obj.id,
+            "title": post_obj.title,
+            "content": post_obj.content,
+            "published": post_obj.published,
+            "created_at": post_obj.created_at,
+            "owner_id": post_obj.owner_id,
+            "owner": post_obj.owner,
+            "votes": votes
+        })
+    return posts
 
 
 @router.get("/latest")
@@ -55,9 +70,23 @@ def get_post(id: int, db: Session = Depends(get_db), current_user: int = Depends
     # cursor.execute("""SELECT * FROM posts WHERE id = %s """, (str(id)))
     # post = cursor.fetchone()
 
-    post = db.query(models.Post, func.count(models.Vote.post_id).label("votes")).join(
+    raw_post = db.query(models.Post, func.count(models.Vote.post_id).label("votes")).join(
         models.Vote, models.Vote.post_id == models.Post.id, isouter=True).group_by(models.Post.id).filter(
             models.Post.id == id).first()
+    if raw_post:
+        post_obj, votes = raw_post
+        post = {
+            "id": post_obj.id,
+            "title": post_obj.title,
+            "content": post_obj.content,
+            "published": post_obj.published,
+            "created_at": post_obj.created_at,
+            "owner_id": post_obj.owner_id,
+            "owner": post_obj.owner,
+            "votes": votes
+        }
+    else:
+        post = None
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
          detail=f"post with id: {id} was not found")
@@ -111,7 +140,17 @@ def update_post(id: int, update_post: schemas.PostCreate, db: Session = Depends(
                             detail=f"Not authorized to perform requested action") 
 
     post_query.update(update_post.dict(), synchronize_session=False)
-    db.commit()            
+    db.commit()
 
-    return {"data": post_query.first()}
+    # return the updated object directly (not wrapped) to match tests
+    updated = post_query.first()
+    return {
+        "id": updated.id,
+        "title": updated.title,
+        "content": updated.content,
+        "published": updated.published,
+        "created_at": updated.created_at,
+        "owner_id": updated.owner_id,
+        "owner": updated.owner
+    }
 

@@ -3,11 +3,12 @@ from app import models, schemas
 
 
 @pytest.fixture()
-def test_vote(test_user, session, test_user):
+def test_vote(test_user, session):
     """Fixture to create a test vote. """
     new_vote = models.Vote(post_id=1, user_id=test_user["id"])
     session.add(new_vote)
     session.commit()
+    session.refresh(new_vote)
     return new_vote
 
 

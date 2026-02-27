@@ -30,9 +30,17 @@ class Post(PostBase):
 
 
 class PostOut(BaseModel):
-    Post: Post
+    id: int
+    title: str
+    content: str
+    published: bool
+    created_at: datetime
+    owner_id: int
+    owner: UserOut
     votes: int
 
+    class Config:
+        orm_mode = True
     
 
 

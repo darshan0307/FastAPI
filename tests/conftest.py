@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import psycopg2
-from psycopg2.extras import RealDictCursor
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 import time
 from app.config import settings
 from app.database import get_db
@@ -15,7 +15,25 @@ from alembic import command
 from app import models
 from app.oauth2 import create_access_token
 
-SQLALCHEMY_DATABASE_URL = f"postgresql://{settings.database_username}:{settings.database_password}@{settings.database_hostname}:{settings.database_port}/{settings.database_name}_test"
+# ensure the test database exists before SQLAlchemy tries to connect
+TEST_DB_NAME = f"{settings.database_name}_test"
+def _create_test_db():
+    conn = psycopg2.connect(host=settings.database_hostname,
+                            user=settings.database_username,
+                            password=settings.database_password,
+                            port=settings.database_port,
+                            dbname="postgres")
+    conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (TEST_DB_NAME,))
+    if not cur.fetchone():
+        cur.execute(f"CREATE DATABASE \"{TEST_DB_NAME}\"")
+    cur.close()
+    conn.close()
+
+_create_test_db()
+
+SQLALCHEMY_DATABASE_URL = f"postgresql://{settings.database_username}:{settings.database_password}@{settings.database_hostname}:{settings.database_port}/{TEST_DB_NAME}"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
@@ -36,9 +54,14 @@ TestingSessionLocal = sessionmaker(
 app.dependency_overrides[get_db] = get_db
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def session():
-    """Fixture for the database session. """
+    """Fixture for the database session.
+
+    Runs for each test to ensure a clean database state.  Dropping and
+    recreating all tables on every function is slower but keeps tests
+    isolated and avoids unique-key conflicts.
+    """
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
@@ -48,7 +71,7 @@ def session():
         db.close()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def client(session):
     """Fixture for the test client. """
     def override_get_db():
@@ -63,8 +86,10 @@ def client(session):
 
 @pytest.fixture
 def test_user(client):
-    """Fixture for creating a test user. """
-    user_data = {"email": "test@example.com", "password": "password123"}
+    """Fixture for creating a test user with a unique email per invocation."""
+    import uuid
+    email = f"test_{uuid.uuid4().hex}@example.com"
+    user_data = {"email": email, "password": "password123"}
     response = client.post("/user/", json=user_data)
     assert response.status_code == 201
     new_user = response.json()

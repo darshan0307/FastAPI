@@ -28,7 +28,8 @@ app.include_router(vote.router)
 
 @app.get("/")
 async def root():
-    return {"message": "Hello World !!!!!!!! Run Syccessfully "}
+    # tests expect a very simple greeting
+    return {"message": "Hello World!"}
 
 
 
