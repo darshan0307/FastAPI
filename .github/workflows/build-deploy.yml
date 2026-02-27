@@ -1,13 +1,13 @@
 name: Build and Deploy code
 
-on: [push, pull_request]
+on: [push]
 
 jobs:
   build:
     environment:
       name: testing
     env:
-      DATABASE_HOSTNAME: ${{ secrets.DATABASE_HOSTNAME }}
+      DATABASE_HOSTNAME: ${{ secrets.DATABASE_HOST }}
       DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
       DATABASE_NAME: ${{ secrets.DATABASE_DB }}
       DATABASE_USERNAME: ${{ secrets.DATABASE_USERNAME }}
@@ -17,9 +17,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:latest
+        image: postgres:15
         env:
-          POSTGRES_HOST: ${{ secrets.DATABASE_HOSTNAME }}
+          POSTGRES_HOST: ${{ secrets.DATABASE_HOST }}
           POSTGRES_USER: ${{ secrets.DATABASE_USERNAME }}
           POSTGRES_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
           POSTGRES_DB: ${{ secrets.DATABASE_DB }}
