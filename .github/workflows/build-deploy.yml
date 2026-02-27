@@ -7,6 +7,7 @@ jobs:
     environment:
       name: testing
     env:
+      DATABASE_HOSTNAME: ${{ secrets.DATABASE_HOSTNAME }}
       DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
       DATABASE_NAME: ${{ secrets.DATABASE_DB }}
       DATABASE_USERNAME: ${{ secrets.DATABASE_USERNAME }}
@@ -18,7 +19,7 @@ jobs:
       postgres:
         image: postgres:latest
         env:
-          POSTGRES_HOST: ${{ secrets.DATABASE_HOST }}
+          POSTGRES_HOST: ${{ secrets.DATABASE_HOSTNAME }}
           POSTGRES_USER: ${{ secrets.DATABASE_USERNAME }}
           POSTGRES_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
           POSTGRES_DB: ${{ secrets.DATABASE_DB }}
